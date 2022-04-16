@@ -1,0 +1,34 @@
+name: "my-website"
+output_dir: "docs"
+navbar:
+  title: "JSC370 Final Project"
+  left:
+    - text: "Home"
+      href: index.html
+      icon: fa-home
+    - text: "Global Economy"
+      icon: fa-chart-bar
+      menu:
+        - text: "Current State"
+          href: global.html
+        - text: "Economic Indicators"
+          href: indicators.html
+    - text: "U.S. Economy and Market"
+      icon: fa-chart-bar
+      href: USonly.html
+    - text: "Data Analytics"
+      href: analytics.html
+  right:
+    - icon: fa-github fa-lg
+      text: "JSC370"
+      href: https://github.com/JSC370/jsc370-2022/
+    - text: "JSC370 Home"
+      href: https://jsc370.github.io/jsc370-2022/
+    - text: "Project Repo"
+      href: https://github.com/hgeorge21/JSC370-actualfinalproject/
+output:
+  html_document:
+    theme: cosmo
+    include:
+      after_body: footer.html
+    css: styles.css
