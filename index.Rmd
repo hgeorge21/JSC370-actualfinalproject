@@ -4,48 +4,45 @@ output:
     html_document:
         toc: TRUE
         toc_float: TRUE
-params:
-  portfolio: "sample.csv"
 ---
 # Background
-This project aims to answer how inflation is tied to an economy and the economic growth, and how one may combat inflation.
+This project aims to answer how inflation is tied to an economy and the economic growth, and how one may predict the future inflation given current state of the economy.
 
 We currently live in a special time in history. While we are still dealing with an ongoing global pandemic,
 the economy is also faced with high inflation. High inflation often leads to higher cost of living and decreased
 living standard. The goal of this project is to analyze the effect of inflation on the economy. 
-In the first part (midterm project), we will examine past inflation data and various economic metrics; this includes but not limited to inflation's effect on cost of living and different assets. 
 
 # Questions of Interest
-The main question we aim to answer are the following
+The main question we aim to answer are 
 
 1. How does inflation affect the overall economy and economic growth (e.g. GDP)?
 2. How does inflation affect the standard of living i.e. CPI?
-3. How are different assets affected by inflation (e.g. real estate, stocks)
-4. How can one protect themselves from inflation by constructing a portfolio of assets?
-   This looks at broader market in terms of different industrial sectors
+3. Given the current state of the economy, how may one predict the future inflation?
 
 
 # Data Source
 ### Economic Data
-The first set of data are important economic metrics and indicators.
-The data is extracted from [World Bank](https://data.worldbank.org/indicator). The following indicators are used:
-
-1. GDP (Current US $)
-2. GDP growth (annual %)
-3. Inflation (annual %)
-4. Inflation, consumer prices (annual %)
-
-Another source of data is from Organisation for Economic Co-operation and Development ([OECD](https://www.oecd.org/)).
+The main source of data is from Organisation for Economic Co-operation and Development ([OECD](https://www.oecd.org/)).
 Data from OECD includes
 
-1. Inflation
-2. Housing Prices
-3. Shares Prices
+* GDP per Capita
+* Population
+* Working Age Population
+* Employment Rate
+* Inflation
+* Housing Prices
+* Share Prices
+* Short-term Interest Rate
+* Household Dispensable Income
+* Household Debt
+* Household Savings
+* Household Spending
+
 
 ### Stock Price Data
 Stock data are mainly extracted from [Alpha Vantage](https://www.alphavantage.co/) and [Finnhub](https://finnhub.io/).
 
-The API for Alpha Vantage and Finnhub are only availble in Python and other non-R languages, and therefore the data is extracted
+The API for Alpha Vantage and Finnhub are only available in Python and other non-R languages, and therefore the data is extracted
 in the code [here](https://hgeorge21.github.io/JSC370-finalproject/data_download.py)
 
 
@@ -68,6 +65,363 @@ R is used for the analytics, data cleaning, and constructing interactive plots
 
 # PDF Report Download
 Click [here](https://hgeorge21.github.io/JSC370-finalproject/noreportError.html) to download report
+
+
+
+<!-- ============================ Code ===================================== -->
+```{r echo=F, warning=F, message=F}
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(data.table)
+library(DT)
+library(plotly)
+
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(gbm)
+library(xgboost)
+library(xgboost)
+library(caret)
+
+
+fpath <- "./data/"
+
+GDP                <- read.csv(paste0(fpath, "GDP.csv"))
+Population         <- read.csv(paste0(fpath, "Population.csv"))
+Population.Working <- read.csv(paste0(fpath, "WorkingAgePopulation.csv"))
+EmploymentRate     <- read.csv(paste0(fpath, "EmploymentRate.csv"))
+Inflation          <- read.csv(paste0(fpath, "Inflation.csv"))
+HousingPrices      <- read.csv(paste0(fpath, "HousingPrices.csv"))
+SharePrices        <- read.csv(paste0(fpath, "SharePrices.csv"))
+InterestRate       <- read.csv(paste0(fpath, "ShortTermInterestRate.csv"))
+HouseholdIncome    <- read.csv(paste0(fpath, "HouseHoldIncome.csv"))
+HouseholdDebt      <- read.csv(paste0(fpath, "HouseHoldDebt.csv"))
+HouseholdSavings   <- read.csv(paste0(fpath, "HouseHoldSavings.csv"))
+HouseholdSpending  <- read.csv(paste0(fpath, "HouseHoldSpending.csv"))
+```
+
+
+```{r echo=F}
+# Only use annual stats
+EmploymentRate <- EmploymentRate %>%
+  filter(FREQUENCY == 'A') %>%
+  filter(MEASURE == 'PC_WKGPOP') %>%
+  filter(SUBJECT == 'TOT')
+
+HouseholdIncome <- HouseholdIncome %>%
+  filter(FREQUENCY == 'A') %>%
+  filter(MEASURE == 'AGRWTH') %>%
+  filter(SUBJECT == 'NET')
+
+HousingPrices <- HousingPrices %>%
+  filter(FREQUENCY == 'A') %>%
+  filter(SUBJECT == 'RENT')
+
+Inflation <- Inflation %>%
+  filter(FREQUENCY == 'A') %>%
+  filter(SUBJECT == 'TOT') %>%
+  filter(MEASURE == 'AGRWTH')
+
+HouseholdSpending <- HouseholdSpending %>%
+  filter(SUBJECT == 'TOT') %>%
+  filter(MEASURE == 'PC_GDP')
+
+PopulationGrowth <- Population %>%
+  filter(SUBJECT == 'TOT') %>%
+  filter(MEASURE == 'AGRWTH')
+
+Population <- Population %>%
+  filter(SUBJECT == 'TOT') %>%
+  filter(MEASURE == 'MLN_PER')
+
+SharePrices <- SharePrices %>%
+  filter(FREQUENCY == 'A')
+
+InterestRate <- InterestRate %>%
+  filter(FREQUENCY == 'A')
+
+GDP.raw <- GDP %>%
+  filter(MEASURE == 'MLN_USD')
+
+GDP.capita <- GDP %>%
+  filter(MEASURE == 'USD_CAP')
+```
+
+
+```{r echo=F}
+# Cleanup data a bit
+GDP.raw <- GDP.raw %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         GDP=Value) %>%
+  select(c("Country.Code", "Year", "GDP"))
+
+GDP.capita <- GDP.capita %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         GDPPerCapita=Value) %>%
+  select(c("Country.Code", "Year", "GDPPerCapita"))
+
+EmploymentRate <- EmploymentRate %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         EmploymentRate=Value) %>%
+  select(c("Country.Code", "Year", "EmploymentRate"))
+
+HouseholdDebt <- HouseholdDebt %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         HouseholdDebt=Value) %>%
+  select(c("Country.Code", "Year", "HouseholdDebt"))
+
+HouseholdIncome <- HouseholdIncome %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         HouseholdIncome=Value) %>%
+  select(c("Country.Code", "Year", "HouseholdIncome"))
+
+HouseholdSavings <- HouseholdSavings %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         HouseholdSavings=Value) %>%
+  select(c("Country.Code", "Year", "HouseholdSavings"))
+
+HouseholdSpending <- HouseholdSpending %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         HouseholdSpending=Value) %>%
+  select(c("Country.Code", "Year", "HouseholdSpending"))
+
+HousingPrices <- HousingPrices %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         HousingPrices=Value) %>%
+  select(c("Country.Code", "Year", "HousingPrices"))
+
+Inflation <- Inflation %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         Inflation=Value) %>%
+  select(c("Country.Code", "Year", "Inflation"))
+
+InterestRate <- InterestRate %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         InterestRate=Value) %>%
+  select(c("Country.Code", "Year", "InterestRate"))
+
+Population <- Population %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         Population=Value) %>%
+  select(c("Country.Code", "Year", "Population"))
+
+Population.Working <- Population.Working %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         WorkingPopulation=Value) %>%
+  select(c("Country.Code", "Year", "WorkingPopulation"))
+
+PopulationGrowth <- PopulationGrowth %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         PopulationGrowth=Value) %>%
+  select(c("Country.Code", "Year", "PopulationGrowth"))
+
+SharePrices <- SharePrices %>%
+  select(c("LOCATION", "TIME", "Value")) %>%
+  filter(nchar(TIME) == 4) %>%
+  mutate(Country.Code=LOCATION,
+         Year=as.integer(TIME),
+         SharePrices=Value) %>%
+  select(c("Country.Code", "Year", "SharePrices"))
+```
+
+
+```{r echo=F}
+df <- merge(x=GDP.raw, y=GDP.capita,   by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=EmploymentRate,    by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=HouseholdSavings,  by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=HouseholdSpending, by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=HousingPrices,     by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=Inflation,         by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=InterestRate,      by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=Population,        by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=PopulationGrowth,  by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=Population.Working,by=c("Country.Code", "Year"), all.x=T)
+```
+
+```{r include=F} 
+df %>%
+  filter(is.na(Inflation)) %>%
+  group_by(Country.Code) %>%
+  summarise(counts=n())
+```
+
+```{r echo=F}
+df <- df %>%
+ drop_na()
+
+df[,3:4] <- round(df[,3:4], 0)
+df[,5:13] <- round(df[,5:13], 2)
+
+df %>%
+  mutate(Country=Country.Code) %>%
+  select(c('Country', 'Year', 'Inflation', 'GDP', 'GDPPerCapita', 'Population', 'EmploymentRate')) %>%
+  datatable(options=list(
+    columnDefs = list(list(className = 'dt-center', targets = 5)),
+    pageLength=10
+  )) %>%
+  formatCurrency(c('GDP', 'GDPPerCapita'), currency = '$ ',
+                 interval = 3, mark = ',', before = T)
+```
+
+
+
+```{r echo=F}
+inflationPred <- df %>%
+  select(c('Country.Code', 'Year', 'Inflation')) %>%
+  mutate(Year=Year-1, Target=Inflation) %>%
+  select(c('Country.Code', 'Year', 'Target'))
+  
+df <- merge(x=df, y=inflationPred, by=c('Country.Code', 'Year'), all.x=T)
+```
+
+```{r echo=F}
+train <- df %>%
+  filter(Year<=1995+19) %>%
+  select(c('GDP', 'GDPPerCapita', 'EmploymentRate', 'HouseholdSavings',
+           'HouseholdSpending', 'HousingPrices', 'Inflation',
+           'InterestRate', 'Population', 'PopulationGrowth', 
+           'WorkingPopulation', 'Target')) %>%
+  drop_na()
+
+test <- df %>%
+  filter(Year>1995+19) %>%
+  select(c('GDP', 'GDPPerCapita', 'EmploymentRate', 'HouseholdSavings',
+           'HouseholdSpending', 'HousingPrices', 'Inflation',
+           'InterestRate', 'Population', 'PopulationGrowth', 
+           'WorkingPopulation', 'Target')) %>%
+  drop_na()
+```
+
+
+```{r echo=F}
+# Decision Tree
+tree <- rpart(Target~., data=train, method="anova", control=list(minsplit=10, minbucket=3, cp=0, xval=10))
+optimalcp = tree$cptable[which.min(tree$cptable[,"xerror"]), "CP"]
+tree_prune <- prune(tree, cp=optimalcp)
+rpart.plot(tree_prune)
+```
+
+```{r echo=F}
+# Bagging
+bag <- randomForest(Target~., data=train, mtry=11, na.action=na.omit)
+varImpPlot(bag, n.var=11, col="blue", main='Bagging Importance Plot')
+```
+
+```{r echo=F}
+# random forest
+rf <- randomForest(Target~., data=train, na.action=na.omit)
+varImpPlot(rf, n.var=11, col="blue", main='Random Forest Importance Plot')
+```
+
+```{r echo=F}
+# GBM
+shrinkages <- seq(0.001, 0.1, length.out=10)
+mses <- c()
+for (skg in shrinkages) {
+  boost = gbm(Target~., data=train, distribution='gaussian', n.trees=1000, shrinkage=skg, interaction.depth=1, cv.folds=10)
+  mses <- c(mses, mean(boost$train.error))
+}
+
+plot(shrinkages, mses)
+```
+
+```{r}
+boost <- gbm(Target~., data=train, distribution='gaussian', n.trees=1000, shrinkage=0.1, interaction.depth=1, cv.folds=10)
+summary(boost)
+```
+
+```{r}
+# XGBoost
+train_control = trainControl(method="cv", number=10, search="grid")
+
+tune_grid <- expand.grid(max_depth = 3,
+                         nrounds = (1:10)*50,
+                         eta = seq(0.001, 0.5, length.out=10),
+                         gamma = 0,
+                         subsample = 1, 
+                         min_child_weight = 1, 
+                         colsample_bytree = 0.6
+                         )
+
+xgb <- caret::train(Target~., data=train, method="xgbTree", trControl = train_control, tuneGrid = tune_grid, verbosity=0)
+plot(varImp(xgb, scale = F))
+```
+
+
+```{r}
+methods <- c('Regression Tree', 'Bagging', 'Random Forest', 'Boosting', 'XGBoost')
+rmses <- c()
+
+yhat_tree <- predict(tree_prune, newdata=test)
+rmses <- c(rmses, mean((yhat_tree - test[,"Target"])^2))
+
+yhat_bag <- predict(bag, newdata=test)
+rmses <- c(rmses, mean((yhat_bag - test[,"Target"])^2))
+
+yhat_rf <- predict(rf, newdata=test)
+rmses <- c(rmses, mean((yhat_rf - test[,"Target"])^2))
+
+yhat_boost <- predict(boost, newdata=test, n.trees=1000)
+rmses <- c(rmses, mean((yhat_boost - test[,"Target"])^2))
+
+yhat_xgb <- predict(xgb, newdata = test)
+rmses <- c(rmses, caret::RMSE(test[, "Target"], yhat_xgb)^2)
+```
+
+
+```{r echo=F}
+knitr::kable(data.frame(method=methods, RMSE=rmses),
+             caption="Methods and RMSE")
+```
+
+```{r}
+test['Prediction'] <- yhat_rf
+plot(test$Target, test$Prediction)
+```
+
+
+
 
 
 

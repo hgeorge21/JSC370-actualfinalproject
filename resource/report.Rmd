@@ -1,0 +1,29 @@
+---
+title: "JSC370 Final Report"
+author: "Yongzhen Huang"
+date: "4/18/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+We currently live in a special time in history. While we are still dealing with an ongoing global pandemic,
+the economy is also faced with high inflation. High inflation often leads to higher cost of living and decreased
+living standard. 
+
+This project aims to answer how inflation is tied to an economy and the economic growth, and how one may predict the future inflation given current state of the economy.
+In particular, the following questions will be answered
+
+1. How does inflation affect the overall economy and economic growth (e.g. GDP)?
+2. How does inflation affect the standard of living i.e. CPI?
+3. Given the current state of the economy, how may one predict the future inflation?
+
+
+# Methods
+
+# Results
+
+# Conclusions and Summary
