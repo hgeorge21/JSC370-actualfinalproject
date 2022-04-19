@@ -195,6 +195,22 @@ GDPgrowth <- merge(x=GDP.raw, y=GDP.t1, by=c('Country.Code', 'Year'), all.x=T) %
   mutate(GDPGrowth=100*(NewGDP/GDP)-100) %>%
   select(c('Country.Code', 'Year', 'GDPGrowth'))
 
+
+# Share price and Rent price change
+SharePrices1 <- SharePrices %>%
+  mutate(Year=Year-1, NewPrice=SharePrices) %>%
+  select(c('Country.Code', 'Year', 'NewPrice'))
+HousingPrices1 <- HousingPrices %>%
+  mutate(Year=Year-1, NewPrice=HousingPrices) %>%
+  select(c('Country.Code', 'Year', 'NewPrice'))
+
+SharePrices <- merge(x=SharePrices, y=SharePrices1, by=c('Country.Code', 'Year'), all.x=T) %>%
+  mutate(ShareGrowth=100*NewPrice/SharePrices-100) %>%
+  select(c('Country.Code', 'Year', 'ShareGrowth'))
+HousingPrices <- merge(x=HousingPrices, y=HousingPrices1, by=c('Country.Code', 'Year'), all.x=T) %>%
+  mutate(RentGrowth=100*NewPrice/HousingPrices-100) %>%
+  select(c('Country.Code', 'Year', 'RentGrowth'))
+
 # Add next year's inflation as target
 inflationPred <- Inflation %>%
   select(c('Country.Code', 'Year', 'Inflation')) %>%
@@ -209,6 +225,7 @@ df <- merge(x=df, y=EmploymentRate,    by=c("Country.Code", "Year"), all.x=T)
 df <- merge(x=df, y=HouseholdSavings,  by=c("Country.Code", "Year"), all.x=T)
 df <- merge(x=df, y=HouseholdSpending, by=c("Country.Code", "Year"), all.x=T)
 df <- merge(x=df, y=HousingPrices,     by=c("Country.Code", "Year"), all.x=T)
+df <- merge(x=df, y=SharePrices,       by=c("Country.Code", "Year"), all.x=T)
 df <- merge(x=df, y=Inflation,         by=c("Country.Code", "Year"), all.x=T)
 df <- merge(x=df, y=InterestRate,      by=c("Country.Code", "Year"), all.x=T)
 df <- merge(x=df, y=Population,        by=c("Country.Code", "Year"), all.x=T)
@@ -232,7 +249,7 @@ df[,5:13] <- round(df[,5:13], 2)
 train <- df %>%
   filter(Year<=1995+19) %>%
   select(c('GDP', 'GDPPerCapita', 'EmploymentRate', 'HouseholdSavings',
-           'HouseholdSpending', 'HousingPrices', 'Inflation',
+           'HouseholdSpending', 'RentGrowth', 'ShareGrowth', 'Inflation',
            'InterestRate', 'Population', 'PopulationGrowth', 'GDPGrowth',
            'WorkingPopulation', 'Target')) %>%
   drop_na()
@@ -240,7 +257,7 @@ train <- df %>%
 test <- df %>%
   filter(Year>1995+19) %>%
   select(c('GDP', 'GDPPerCapita', 'EmploymentRate', 'HouseholdSavings',
-           'HouseholdSpending', 'HousingPrices', 'Inflation',
+           'HouseholdSpending', 'RentGrowth', 'ShareGrowth', 'Inflation',
            'InterestRate', 'Population', 'PopulationGrowth', 'GDPGrowth',
            'WorkingPopulation', 'Target')) %>%
   drop_na()

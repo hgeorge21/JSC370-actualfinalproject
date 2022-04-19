@@ -8,13 +8,14 @@ output:
 # Background
 We currently live in a special time in history. While we are still dealing with an ongoing global pandemic,
 the economy is also faced with high inflation. High inflation often leads to higher cost of living and decreased
-living standard. 
+living standard. Understanding inflation is crucial for government and policy makers as it greatly impacts the 
+decision making process.
 
 This project aims to answer how inflation is tied to an economy and the economic growth, and how one may predict the future inflation given current state of the economy.
 In particular, the following questions will be answered
 
 1. How does inflation affect the overall economy and economic growth (e.g. GDP)?
-2. How does inflation affect the standard of living i.e. CPI?
+2. How does inflation affect the standard of living e.g. rent cost?
 3. Given the current state of the economy, how may one predict the future inflation?
 
 
@@ -33,17 +34,17 @@ Data from OECD are downloaded as annual data in CSV files and includes the follo
 | Interest Rate   | government short-term interest rate      |
 | Household stats | Savings and spending                     |
 
-Stock data are mainly extracted from [Alpha Vantage](https://www.alphavantage.co/) and [Finnhub](https://finnhub.io/).
+<!-- Stock data are mainly extracted from [Alpha Vantage](https://www.alphavantage.co/) and [Finnhub](https://finnhub.io/). -->
 
-The API for Alpha Vantage and Finnhub are only available in Python and other non-R languages, and therefore the data is extracted
-in the code [here](https://hgeorge21.github.io/JSC370-finalproject/data_download.py)
+<!-- The API for Alpha Vantage and Finnhub are only available in Python and other non-R languages, and therefore the data is extracted -->
+<!-- in the code [here](https://hgeorge21.github.io/JSC370-inflationAnalysis/data_download.py) -->
 
 
 ## Data Cleaning
-Overall, the main tools used for the project are R and Python.
+Overall, the main tools used for the project are R.
 
-Python is focused towards data collection from Finnhub and Alpha Vantage for
-market, mainly major indices (DJIA, NASAQ, and S&P500) with sector ETFs.
+<!-- Python is focused towards data collection from Finnhub and Alpha Vantage for -->
+<!-- market, mainly major indices (DJIA, NASAQ, and S&P500) with sector ETFs. -->
 
 R is used for the data cleaning, analytics, and constructing interactive plots
 
@@ -67,11 +68,21 @@ data occurs strictly after the training data by country.
 <!-- ============================ Code ===================================== -->
 ```{r echo=F, warning=F, message=F}
 fpath <- "./data/"
-fn <- "https://raw.githubusercontent.com/hgeorge21/JSC370-actualfinalproject/main/resource/datacleaning.R"
+fn <- "https://raw.githubusercontent.com/hgeorge21/JSC370-inflationAnalysis/main/resource/datacleaning.R"
 if (!file.exists("./resource/datacleaning.R"))
   download.file(fn, destfile = "./resource/datacleaning.R")
 source('./resource/datacleaning.R')
 ```
+
+## Feature Overview
+The goal of the predictive model is to predict next year's inflation given current state of economy. 
+Therefore, the core economic indicators we have include gross GDP, GDP per capita, and GDP growth showing economic output.
+Population, specifically % of population that is of working age along with employment rate shows the health of the labour market.
+The current inflation, household savings and spending, and rent and share prices illustrate the consumption and price levels.
+Finally, interest rate, reflects the government's action to control and drive the economy. When the economy is heating up (inflation is higher), governments
+tend to raise interest rate to cool off the market. Conversely, when the economy is cooling down, interest rate is decreased to act as
+stimulus to drive the economy.
+
 
 ## Data Overview
 ```{r echo=F}
@@ -87,6 +98,57 @@ df %>%
 ```
 
 ## Key Economic Indicators {.tabset}
+
+Looking at the correlation between inflation and key economic indicators, we see that 
+there is a high correlation between inflation and interest rate which is expected.
+Another metric that has a more significant correlation with inflation is rent growth,
+especially in countries with most data samples shown in below table. This is not
+surprising since rent growth directly reflects increase in cost of living. 
+
+```{r echo=F}
+corTabSum <- data.table(df)[,.(
+  Entries=length(Inflation),
+  Cor.GDP=cor(Inflation, GDPGrowth),
+  Cor.HouseCost=cor(Inflation, RentGrowth),
+  Cor.SharePx=cor(Inflation, ShareGrowth),
+  Cor.EmployRate=cor(Inflation, EmploymentRate),
+  Cor.InterestRate=cor(Inflation, InterestRate)
+)]
+corTabSum[,2:6] = round(corTabSum[,2:6], 3)
+knitr::kable(corTabSum, caption="Correlation between Inflation and Key Metrics")
+
+corTab <- data.table(df)[,.(
+  Entries=length(Inflation),
+  Cor.GDP=cor(Inflation, GDPGrowth),
+  Cor.HouseCost=cor(Inflation, RentGrowth),
+  Cor.SharePx=cor(Inflation, ShareGrowth),
+  Cor.EmployRate=cor(Inflation, EmploymentRate),
+  Cor.InterestRate=cor(Inflation, InterestRate)
+), by=Country.Code]
+corTab[,3:7] = round(corTab[,3:7], 3)
+
+corTab %>%
+  datatable(options=list(
+    columnDefs = list(list(className = 'dt-center', targets = 5)),
+    order = list(2, 'desc'),
+    pageLength=10
+  ))
+```
+
+Plotting inflation, interest rate, and GDP growth by country, we see that inflation and interest rate
+follow very similar trajectory. From the historical data, there are some interesting notes
+
+* Inflation, and in turn interest rate, are quite high in 1970-80s
+* In 2008, almost all countries have negative GDP growth because of the global financial crisis. Interest rate
+has also taken a deep dive at the time
+* In 2014, Ireland's GDP growth stands out from all other countries. This was because they lowered corporation tax,
+allowing large multinational corporations to relocate their economic activities, therefore driving the economy. Consequently,
+GDP growth in 2015 went back down.
+* Inflation and interest rate are extremely low in 2020 due to COVID-19 pandemic and
+governments trying to stimulate the economy. In some cases, we can see negative inflation and interest rate.
+On the other hand, GDP growth was negative for many country.
+
+
 ### Inflation
 ```{r echo=F}
 plt_inflation <-
@@ -136,12 +198,12 @@ including current year's inflation number. The models that are used are
 
 ### Variable Importance {.tabset}
 
-We can see from the variable importance plots that boosting does not
-quite align with other models. For instance, GDP growth is not as important in other models
-whereas it is second most important in boosting model. This is a crucial distinction
-as seen from the models' performances.
+We can see from the variable importance plots current inflation, rent growth, and interest rate
+are the most relevant features in the model. Even a simple pruned decision tree is able to
+capture this feature. Overall, the different models agree quite well with each other.
 
 #### Decision Tree
+
 ```{r echo=F}
 set.seed(15129)
 
@@ -153,27 +215,35 @@ rpart.plot(tree_prune)
 ```
 
 #### Bagging
+For bagging, we set the number of variables sampled as candidates to be the same
+as the number of variables, 13.
+
 ```{r echo=F}
 set.seed(15129)
 
 # Bagging
-bag <- randomForest(Target~., data=train, mtry=11, na.action=na.omit)
-varImpPlot(bag, n.var=11, col="blue", main='Bagging Importance Plot')
+bag <- randomForest(Target~., data=train, mtry=13, na.action=na.omit)
+varImpPlot(bag, n.var=13, col="blue", main='Bagging Importance Plot')
 ```
 
 #### Random Forest
+
 ```{r echo=F}
 set.seed(15129)
 
 # random forest
 rf <- randomForest(Target~., data=train, na.action=na.omit)
-varImpPlot(rf, n.var=11, col="blue", main='Random Forest Importance Plot')
+varImpPlot(rf, n.var=13, col="blue", main='Random Forest Importance Plot')
 ```
 
 #### GBM
+In GBM model, we try 20 different values of shrinkage from 0.001 to 0.5.
+By comparing the MSE (mean squared error) at different shrinkage value,
+we identified that shrinkage of 0.5 is best suited for the GBM model.
+
 ```{r echo=F}
 # set.seed(15129)
-shrinkages <- seq(0.001, 0.1, length.out=10)
+shrinkages <- seq(0.001, 0.5, length.out=20)
 mses <- c()
 for (skg in shrinkages) {
   boost = gbm(Target~., data=train, distribution='gaussian', n.trees=1000, shrinkage=skg, interaction.depth=1, cv.folds=10)
@@ -183,6 +253,7 @@ for (skg in shrinkages) {
 tmp <- data.frame(shrinkage=shrinkages,mse=mses)
 ggplot(tmp, aes(y=mse, x=shrinkage)) +
   geom_point() +
+  labs(title='GBM Shrinkage vs MSE') +
   xlab('Shrinkage') +
   ylab('MSE')
 ```
@@ -190,15 +261,18 @@ ggplot(tmp, aes(y=mse, x=shrinkage)) +
 ```{r echo=F}
 set.seed(15129)
 
-boost <- gbm(Target~., data=train, distribution='gaussian', n.trees=1000, shrinkage=0.1, interaction.depth=1, cv.folds=10)
+shrinkage.opt <- shrinkages[which.min(mses)]
+boost <- gbm(Target~., data=train, distribution='gaussian', n.trees=1000, shrinkage=shrinkage.opt, interaction.depth=1, cv.folds=10)
 summary <- summary(boost, plotit=F)
 knitr::kable(data.frame(Feature=summary$var,
-                        Relative.Influence=summary$rel.inf),
+                        Relative.Influence=round(summary$rel.inf,2)),
              caption="Variable Importance")
 summary <- summary(boost)
 ```
 
 #### XGBoost
+For XGBoost, we perform a grid search on $\eta$, for 20 values between 0.001 and 0.5.
+
 ```{r echo=F}
 set.seed(15129)
 
@@ -207,7 +281,7 @@ train_control = trainControl(method="cv", number=10, search="grid")
 
 tune_grid <- expand.grid(max_depth = 3,
                          nrounds = (1:10)*50,
-                         eta = seq(0.001, 0.5, length.out=10),
+                         eta = seq(0.001, 0.5, length.out=20),
                          gamma = 0,
                          subsample = 1, 
                          min_child_weight = 1, 
@@ -219,9 +293,9 @@ plot(varImp(xgb, scale = F))
 ```
 
 ### Model Performances
-Based on the model performances, we can see that XGBoost performs the best out of 
-all the models. All the models' MSE are actually quite close to each other except for
-boosting. And the key difference between boosting and other models are as discussed above.
+Based on the model performances, we can see that Random Forest performs the best out of 
+all the models. All the models' MSE are actually quite close to each other since they all
+identified the most relevant features related to future inflation.
 
 ```{r echo=F}
 methods <- c('Regression Tree', 'Bagging', 'Random Forest', 'Boosting', 'XGBoost')
@@ -246,28 +320,40 @@ knitr::kable(data.frame(method=methods, RMSE=round(rmses,4)),
              caption="Methods and RMSE")
 ```
 
-The following graph shows the performance of the XGBoost by plotting the predicted
+The following graph shows the performance of the Random Forst by plotting the predicted
 inflation rate against the actual inflation rate. The red line is the 45-degree line
 which indicates the case of perfect prediction where all points should lie on the line.
 From the graph, we can see there is a linear relationship between the predicted and 
-actual inflation. The implication is that the XGBoost model is capable to predict
+actual inflation. The implication is that the Random Forest model is capable to predict
 future inflation to some extent. This is important because it can help policy makers
 to better understand the future state of economy and adjust policies accordingly.
+
 ```{r echo=F}
-test['Prediction'] <- yhat_xgb
+test['Prediction'] <- yhat_rf
 ggplot(test, aes(y=Target, x=Prediction)) +
   geom_point() +
   geom_abline(intercept=0, slope=1, col='red') +
-  labs(title='XGBoost Predicted vs Actual Inflation Rate') +
+  labs(title='Random Forst Predicted vs Actual Inflation Rate') +
   xlab('Predicted (%)') +
-  ylab('Actual (%)')
+  ylab('Actual (%)') +
+  xlim(-2, 8) +
+  ylim(-2, 8)
 ```
 
+# Conclusion
+In summary, through this analysis on inflation, we constructed a model that predicts
+next year's inflation given current state of a country's economy. 
+We also got a better understanding of how inflation is tied to or affects the economy.
+Out of the key economic indicators we used, current inflation, interest rate, and rent growth turned out to be 
+the most relevant features. Multiple machine learning models were used for the study and
+random forest has the best performance in terms of MSE even though model performances were similar.
 
+By understanding inflation and being able to predict it, it allows economists and policy makers to
+better manage the state of the economy using macro and micro-economic tools.
 
 
 # PDF Report Download
-Click [here](https://hgeorge21.github.io/JSC370-actualfinalproject/resource/report.pdf) to download report
+Click [here](https://hgeorge21.github.io/JSC370-inflationAnalysis/resource/report.pdf) to download report
 
 
 
