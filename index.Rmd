@@ -66,6 +66,10 @@ data occurs strictly after the training data by country.
 # Analysis
 <!-- ============================ Code ===================================== -->
 ```{r echo=F, warning=F, message=F}
+fpath <- "./data/"
+fn <- "https://raw.githubusercontent.com/hgeorge21/JSC370-actualfinalproject/main/resource/datacleaning.R"
+if (!file.exists("./resource/datacleaning.R"))
+  download.file(fn, destfile = "./resource/datacleaning.R")
 source('./resource/datacleaning.R')
 ```
 
@@ -88,9 +92,9 @@ df %>%
 plt_inflation <-
   ggplot(df, aes(x=Year, y=Inflation, color=Country.Code)) +
   geom_line() + 
-  labs(title="Inflation",
-       xlab="Year",
-       ylab="Inflation (%)")
+  labs(title="Inflation") +
+  xlab("Year") +
+  ylab("Inflation (%)")
 
 ggplotly(plt_inflation)
 ```
@@ -100,9 +104,9 @@ ggplotly(plt_inflation)
 plt_inflation <-
   ggplot(df, aes(x=Year, y=InterestRate, color=Country.Code)) +
   geom_line() + 
-  labs(title="Short-term Interest Rate",
-       xlab="Year",
-       ylab="Interest Rate (%)")
+  labs(title="Short-term Interest Rate") +
+  xlab("Year") +
+  ylab("Interest Rate (%)")
 
 ggplotly(plt_inflation)
 ```
@@ -112,16 +116,32 @@ ggplotly(plt_inflation)
 plt_inflation <-
   ggplot(df, aes(x=Year, y=GDPGrowth, color=Country.Code)) +
   geom_line() + 
-  labs(title="GDP Growth",
-       xlab="Year",
-       ylab="GDP Growth (%)")
+  labs(title="GDP Growth") +
+  xlab("Year") +
+  ylab("GDP Growth (%)")
 
 ggplotly(plt_inflation)
 ```
 
 ## Prediction of Next Year's Inflation
+In order to build a model that predicts each country's inflation for the following year
+given current state of the economy, all the features that we have in the data are used,
+including current year's inflation number. The models that are used are
 
+* Pruned Decision Tree
+* Bagging
+* Random Forest
+* GBM
+* XGBoost
 
+### Variable Importance {.tabset}
+
+We can see from the variable importance plots that boosting does not
+quite align with other models. For instance, GDP growth is not as important in other models
+whereas it is second most important in boosting model. This is a crucial distinction
+as seen from the models' performances.
+
+#### Decision Tree
 ```{r echo=F}
 set.seed(15129)
 
@@ -132,7 +152,6 @@ tree_prune <- prune(tree, cp=optimalcp)
 rpart.plot(tree_prune)
 ```
 
-### Variable Importance {.tabset}
 #### Bagging
 ```{r echo=F}
 set.seed(15129)
@@ -151,20 +170,23 @@ rf <- randomForest(Target~., data=train, na.action=na.omit)
 varImpPlot(rf, n.var=11, col="blue", main='Random Forest Importance Plot')
 ```
 
+#### GBM
 ```{r echo=F}
 # set.seed(15129)
-# 
-# # GBM
-# shrinkages <- seq(0.001, 0.1, length.out=10)
-# mses <- c()
-# for (skg in shrinkages) {
-#   boost = gbm(Target~., data=train, distribution='gaussian', n.trees=1000, shrinkage=skg, interaction.depth=1, cv.folds=10)
-#   mses <- c(mses, mean(boost$train.error))
-# }
-# 
-# plot(shrinkages, mses)
+shrinkages <- seq(0.001, 0.1, length.out=10)
+mses <- c()
+for (skg in shrinkages) {
+  boost = gbm(Target~., data=train, distribution='gaussian', n.trees=1000, shrinkage=skg, interaction.depth=1, cv.folds=10)
+  mses <- c(mses, mean(boost$train.error))
+}
+
+tmp <- data.frame(shrinkage=shrinkages,mse=mses)
+ggplot(tmp, aes(y=mse, x=shrinkage)) +
+  geom_point() +
+  xlab('Shrinkage') +
+  ylab('MSE')
 ```
-#### GBM
+
 ```{r echo=F}
 set.seed(15129)
 
@@ -197,6 +219,10 @@ plot(varImp(xgb, scale = F))
 ```
 
 ### Model Performances
+Based on the model performances, we can see that XGBoost performs the best out of 
+all the models. All the models' MSE are actually quite close to each other except for
+boosting. And the key difference between boosting and other models are as discussed above.
+
 ```{r echo=F}
 methods <- c('Regression Tree', 'Bagging', 'Random Forest', 'Boosting', 'XGBoost')
 rmses <- c()
@@ -220,13 +246,21 @@ knitr::kable(data.frame(method=methods, RMSE=round(rmses,4)),
              caption="Methods and RMSE")
 ```
 
+The following graph shows the performance of the XGBoost by plotting the predicted
+inflation rate against the actual inflation rate. The red line is the 45-degree line
+which indicates the case of perfect prediction where all points should lie on the line.
+From the graph, we can see there is a linear relationship between the predicted and 
+actual inflation. The implication is that the XGBoost model is capable to predict
+future inflation to some extent. This is important because it can help policy makers
+to better understand the future state of economy and adjust policies accordingly.
 ```{r echo=F}
 test['Prediction'] <- yhat_xgb
 ggplot(test, aes(y=Target, x=Prediction)) +
   geom_point() +
   geom_abline(intercept=0, slope=1, col='red') +
-  labs(title='Random Forest Predicted vs Actual Inflation Rate',
-       xlab='Predicted (%)', ylab='Actual (%)')
+  labs(title='XGBoost Predicted vs Actual Inflation Rate') +
+  xlab('Predicted (%)') +
+  ylab('Actual (%)')
 ```
 
 

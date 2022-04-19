@@ -14,8 +14,6 @@ library(xgboost)
 library(caret)
 
 
-fpath <- "./data/"
-
 GDP                <- read.csv(paste0(fpath, "GDP.csv"))
 Population         <- read.csv(paste0(fpath, "Population.csv"))
 Population.Working <- read.csv(paste0(fpath, "WorkingAgePopulation.csv"))
@@ -194,7 +192,7 @@ GDP.t1 <- GDP.raw %>%
   select(c('Country.Code', 'Year', 'NewGDP'))
 
 GDPgrowth <- merge(x=GDP.raw, y=GDP.t1, by=c('Country.Code', 'Year'), all.x=T) %>%
-  mutate(GDPGrowth=100*(NewGDP/GDP)-1) %>%
+  mutate(GDPGrowth=100*(NewGDP/GDP)-100) %>%
   select(c('Country.Code', 'Year', 'GDPGrowth'))
 
 # Add next year's inflation as target

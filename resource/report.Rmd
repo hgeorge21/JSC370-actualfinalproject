@@ -67,14 +67,135 @@ data occurs strictly after the training data by country.
 
 
 # Results
-```{r}
+```{r echo=F}
+fpath <- "../data/"
+
 fn <- "https://raw.githubusercontent.com/hgeorge21/JSC370-actualfinalproject/main/resource/datacleaning.R"
-if (!file.exists("./resource/datacleaning.R"))
-  download.file(fn, destfile = "./resource/datacleaning.R")
-source('./resource/datacleaning.R')
-```
+if (!file.exists("./datacleaning.R"))
+  download.file(fn, destfile = "./datacleaning.R")
+source('./datacleaning.R')
 ```
 
+## Predictive Models
+### Decision Tree
+```{r echo=F, fig.cap="Pruned Decision Tree"}
+set.seed(15129)
+
+# Decision Tree
+tree <- rpart(Target~., data=train, method="anova", control=list(minsplit=10, minbucket=3, cp=0, xval=10))
+optimalcp = tree$cptable[which.min(tree$cptable[,"xerror"]), "CP"]
+tree_prune <- prune(tree, cp=optimalcp)
+rpart.plot(tree_prune)
+```
+
+### Bagging
+```{r echo=F, fig.cap="Bagging Variable Importance"}
+set.seed(15129)
+
+# Bagging
+bag <- randomForest(Target~., data=train, mtry=11, na.action=na.omit)
+varImpPlot(bag, n.var=11, col="blue", main='Bagging Importance Plot')
+```
+
+### Random Forest
+```{r echo=F, fig.cap="Random Forest Variable Importance"}
+set.seed(15129)
+
+# random forest
+rf <- randomForest(Target~., data=train, na.action=na.omit)
+varImpPlot(rf, n.var=11, col="blue", main='Random Forest Importance Plot')
+```
+
+### GBM
+```{r echo=F, fig.cap="GBM Shrinkage (left), Variable Importance (right)"}
+set.seed(15129)
+
+# GBM
+shrinkages <- seq(0.001, 0.1, length.out=10)
+mses <- c()
+for (skg in shrinkages) {
+  boost = gbm(Target~., data=train, distribution='gaussian', n.trees=1000, shrinkage=skg, interaction.depth=1, cv.folds=10)
+  mses <- c(mses, mean(boost$train.error))
+}
+
+tmp <- data.frame(shrinkage=shrinkages,mse=mses)
+ggplot(tmp, aes(y=mse, x=shrinkage)) +
+  geom_point() +
+  xlab('Shrinkage') +
+  ylab('MSE')
+
+set.seed(15129)
+
+boost <- gbm(Target~., data=train, distribution='gaussian', n.trees=1000, shrinkage=0.1, interaction.depth=1, cv.folds=10)
+summary <- summary(boost)
+
+knitr::kable(data.frame(Feature=summary$var,
+                        Relative.Influence=summary$rel.inf),
+             caption="Variable Importance")
+```
+
+### XGBoost
+```{r echo=F, fig.cap="XGBoost Variable Importance"}
+set.seed(15129)
+
+# XGBoost
+train_control = trainControl(method="cv", number=10, search="grid")
+
+tune_grid <- expand.grid(max_depth = 3,
+                         nrounds = (1:10)*50,
+                         eta = seq(0.001, 0.5, length.out=10),
+                         gamma = 0,
+                         subsample = 1, 
+                         min_child_weight = 1, 
+                         colsample_bytree = 0.6
+                         )
+
+xgb <- caret::train(Target~., data=train, method="xgbTree", trControl = train_control, tuneGrid = tune_grid, verbosity=0)
+plot(varImp(xgb, scale = F))
+```
+
+## Model Performance
+```{r echo=F}
+methods <- c('Regression Tree', 'Bagging', 'Random Forest', 'Boosting', 'XGBoost')
+rmses <- c()
+
+yhat_tree <- predict(tree_prune, newdata=test)
+rmses <- c(rmses, mean((yhat_tree - test[,"Target"])^2))
+
+yhat_bag <- predict(bag, newdata=test)
+rmses <- c(rmses, mean((yhat_bag - test[,"Target"])^2))
+
+yhat_rf <- predict(rf, newdata=test)
+rmses <- c(rmses, mean((yhat_rf - test[,"Target"])^2))
+
+yhat_boost <- predict(boost, newdata=test, n.trees=1000)
+rmses <- c(rmses, mean((yhat_boost - test[,"Target"])^2))
+
+yhat_xgb <- predict(xgb, newdata = test)
+rmses <- c(rmses, caret::RMSE(test[, "Target"], yhat_xgb)^2)
+
+knitr::kable(data.frame(method=methods, RMSE=round(rmses,4)),
+             caption="Methods and RMSE")
+```
+
+
+The following graph shows the performance of the XGBoost by plotting the predicted
+inflation rate against the actual inflation rate. The red line is the 45-degree line
+which indicates the case of perfect prediction where all points should lie on the line.
+From the graph, we can see there is a linear relationship between the predicted and 
+actual inflation. The implication is that the XGBoost model is capable to predict
+future inflation to some extent. This is important because it can help policy makers
+to better understand the future state of economy and adjust policies accordingly.
+
+```{r echo=F}
+test['Prediction'] <- yhat_xgb
+ggplot(test, aes(y=Target, x=Prediction)) +
+  geom_point() +
+  geom_abline(intercept=0, slope=1, col='red') +
+  labs(title='XGBoost Predicted vs Actual Inflation Rate')+
+  xlab('Predicted (%)') +
+  ylab('Actual (%)')
+```
 
 
 # Conclusions and Summary
