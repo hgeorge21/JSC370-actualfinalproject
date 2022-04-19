@@ -66,7 +66,7 @@ is first extracted from consolidated data to update the year and then merged bac
 the train and test data are split in 70% and 30%, respectively, in chronological order i.e. the test
 data occurs strictly after the training data by country.
 
-### Feature Overview
+## Feature Overview
 The core economic indicators we have include gross GDP, GDP per capita, and GDP growth showing economic output.
 Population, specifically % of population that is of working age along with employment rate shows the health of the labour market.
 The current inflation, household savings and spending, and rent and share prices illustrate the consumption and price levels.
