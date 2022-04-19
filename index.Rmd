@@ -6,65 +6,61 @@ output:
         toc_float: TRUE
 ---
 # Background
-This project aims to answer how inflation is tied to an economy and the economic growth, and how one may predict the future inflation given current state of the economy.
-
 We currently live in a special time in history. While we are still dealing with an ongoing global pandemic,
 the economy is also faced with high inflation. High inflation often leads to higher cost of living and decreased
-living standard. The goal of this project is to analyze the effect of inflation on the economy. 
+living standard. 
 
-# Questions of Interest
-The main question we aim to answer are 
+This project aims to answer how inflation is tied to an economy and the economic growth, and how one may predict the future inflation given current state of the economy.
+In particular, the following questions will be answered
 
 1. How does inflation affect the overall economy and economic growth (e.g. GDP)?
 2. How does inflation affect the standard of living i.e. CPI?
 3. Given the current state of the economy, how may one predict the future inflation?
 
 
-# Data Source
-### Economic Data
+# Methods
+## Data Source
 The main source of data is from Organisation for Economic Co-operation and Development ([OECD](https://www.oecd.org/)).
-Data from OECD includes
+Data from OECD are downloaded as annual data in CSV files and includes the following information.
 
-* GDP per Capita
-* Population
-* Working Age Population
-* Employment Rate
-* Inflation
-* Housing Prices
-* Share Prices
-* Short-term Interest Rate
-* Household Dispensable Income
-* Household Debt
-* Household Savings
-* Household Spending
+| Category        |                 Details                  |
+|----------------:|-----------------------------------------:|
+| GDP             | $USD millions, per capita                |
+| Population      | # million persons, growth, % working age |
+| Employment Rate | % of working age population              |
+| Inflation       | annual %                                 |
+| Prices          | housing (rent) and share prices          |
+| Interest Rate   | government short-term interest rate      |
+| Household stats | Savings and spending                     |
 
-
-### Stock Price Data
 Stock data are mainly extracted from [Alpha Vantage](https://www.alphavantage.co/) and [Finnhub](https://finnhub.io/).
 
 The API for Alpha Vantage and Finnhub are only available in Python and other non-R languages, and therefore the data is extracted
 in the code [here](https://hgeorge21.github.io/JSC370-finalproject/data_download.py)
 
 
-# Tools Used
+## Data Cleaning
 Overall, the main tools used for the project are R and Python.
 
 Python is focused towards data collection from Finnhub and Alpha Vantage for
-market and some economics data focused in the US. Note that an alternative option
-to storing the data for time series, especially stocks prices, is the use of K-database ([`KDB`](https://code.kx.com/q/))
-with the use of `q` language. However, this adds to the complexity of the project
-with the installation requirement, license and etc.; it is thus not used.
+market, mainly major indices (DJIA, NASAQ, and S&P500) with sector ETFs.
 
-R is used for the analytics, data cleaning, and constructing interactive plots
+R is used for the data cleaning, analytics, and constructing interactive plots
 
 * `tidylr` for piping
 * `dplyr` for table manipulations
 * `data.tables` for more table manipulations
 * `ggplot` and `plotly` for visualization
 
+Once data is read in from CSV to dataframe (one file per metric), they are filtered
+to contain only the information described above. Then they are all merged using `merge` based on
+country code and year. From here, any NA are dropped.
 
-# PDF Report Download
-Click [here](https://hgeorge21.github.io/JSC370-finalproject/noreportError.html) to download report
+For the prediction problem, the target is next year's inflation number for each country. This data
+is first extracted from consolidated data to update the year and then merged back as target. Finally,
+the train and test data are split in 70% and 30%, respectively, in chronological order i.e. the test
+data occurs strictly after the training data by country.
+
 
 
 
@@ -417,12 +413,18 @@ knitr::kable(data.frame(method=methods, RMSE=rmses),
 
 ```{r}
 test['Prediction'] <- yhat_rf
-plot(test$Target, test$Prediction)
+ggplot(test, aes(y=Target, x=Prediction)) +
+  geom_point() +
+  geom_abline(intercept=0, slope=1, col='red') +
+  labs(title='Random Forest Predicted vs Actual Inflation Rate',
+       xlab='Predicted (%)', ylab='Actual (%)')
 ```
 
 
 
 
+# PDF Report Download
+Click [here](https://hgeorge21.github.io/JSC370-finalproject/resource/report.pdf) to download report
 
 
 
