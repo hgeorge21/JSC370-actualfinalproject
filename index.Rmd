@@ -188,7 +188,9 @@ ggplotly(plt_inflation)
 ## Prediction of Next Year's Inflation
 In order to build a model that predicts each country's inflation for the following year
 given current state of the economy, all the features that we have in the data are used,
-including current year's inflation number. The models that are used are
+including current year's inflation number. For instance, we are given the data for year 2021,
+this includes 2020 to 2021's GDP growth and inflation, and we are trying to predict 2021 to 2022's inflation.
+The models that are used are
 
 * Pruned Decision Tree
 * Bagging
@@ -198,11 +200,12 @@ including current year's inflation number. The models that are used are
 
 ### Variable Importance {.tabset}
 
-We can see from the variable importance plots current inflation, rent growth, and interest rate
-are the most relevant features in the model. Even a simple pruned decision tree is able to
-capture this feature. Overall, the different models agree quite well with each other.
+We can see from the variable importance plots that different models give quite
+different results. However, the common theme between all models is that current year's inflation is the most important feature.
 
 #### Decision Tree
+We can see that the pruned tree is quite complex, it used various number of features.
+The main ones are inflation, GDP growth, and interest rate.
 
 ```{r echo=F}
 set.seed(15129)
@@ -216,17 +219,19 @@ rpart.plot(tree_prune)
 
 #### Bagging
 For bagging, we set the number of variables sampled as candidates to be the same
-as the number of variables, 13.
+as the number of variables, 11. We can see that inflation is the most important feature.
 
 ```{r echo=F}
 set.seed(15129)
 
 # Bagging
-bag <- randomForest(Target~., data=train, mtry=13, na.action=na.omit)
-varImpPlot(bag, n.var=13, col="blue", main='Bagging Importance Plot')
+bag <- randomForest(Target~., data=train, mtry=11, na.action=na.omit)
+varImpPlot(bag, n.var=11, col="blue", main='Bagging Importance Plot')
 ```
 
 #### Random Forest
+From the plot, inflation is still the most important feature, but some other
+features such as interest rate and GDP per capita has became more important.
 
 ```{r echo=F}
 set.seed(15129)
@@ -242,7 +247,7 @@ By comparing the MSE (mean squared error) at different shrinkage value,
 we identified that shrinkage of 0.5 is best suited for the GBM model.
 
 ```{r echo=F}
-# set.seed(15129)
+set.seed(15129)
 shrinkages <- seq(0.001, 0.5, length.out=20)
 mses <- c()
 for (skg in shrinkages) {
@@ -295,7 +300,10 @@ plot(varImp(xgb, scale = F))
 ### Model Performances
 Based on the model performances, we can see that Random Forest performs the best out of 
 all the models. All the models' MSE are actually quite close to each other since they all
-identified the most relevant features related to future inflation.
+identified the most relevant features related to future inflation. Boosting is the exception where
+it's performance is quite different from other models; from the importance chart we see that
+interest rate is not important in the boosting model whereas in other models, it is much more important.
+This sets boosting apart from other models.
 
 ```{r echo=F}
 methods <- c('Regression Tree', 'Bagging', 'Random Forest', 'Boosting', 'XGBoost')
@@ -328,7 +336,7 @@ actual inflation. The implication is that the Random Forest model is capable to 
 future inflation to some extent. This is important because it can help policy makers
 to better understand the future state of economy and adjust policies accordingly.
 
-```{r echo=F}
+```{r echo=F, warning=F, message=F}
 test['Prediction'] <- yhat_rf
 ggplot(test, aes(y=Target, x=Prediction)) +
   geom_point() +

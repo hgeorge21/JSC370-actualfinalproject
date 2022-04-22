@@ -173,7 +173,7 @@ PopulationGrowth <- PopulationGrowth %>%
   select(c("LOCATION", "TIME", "Value")) %>%
   filter(nchar(TIME) == 4) %>%
   mutate(Country.Code=LOCATION,
-         Year=as.integer(TIME),
+         Year=1+as.integer(TIME),
          PopulationGrowth=Value) %>%
   select(c("Country.Code", "Year", "PopulationGrowth"))
 
@@ -188,27 +188,27 @@ SharePrices <- SharePrices %>%
 
 # Obtain GDP growth
 GDP.t1 <- GDP.raw %>%
-  mutate(Year=Year-1, NewGDP=GDP) %>%
-  select(c('Country.Code', 'Year', 'NewGDP'))
+  mutate(Year=Year+1, OldGDP=GDP) %>%
+  select(c('Country.Code', 'Year', 'OldGDP'))
 
 GDPgrowth <- merge(x=GDP.raw, y=GDP.t1, by=c('Country.Code', 'Year'), all.x=T) %>%
-  mutate(GDPGrowth=100*(NewGDP/GDP)-100) %>%
+  mutate(GDPGrowth=100*(GDP/OldGDP)-100) %>%
   select(c('Country.Code', 'Year', 'GDPGrowth'))
 
 
 # Share price and Rent price change
 SharePrices1 <- SharePrices %>%
-  mutate(Year=Year-1, NewPrice=SharePrices) %>%
-  select(c('Country.Code', 'Year', 'NewPrice'))
+  mutate(Year=Year+1, OldPrice=SharePrices) %>%
+  select(c('Country.Code', 'Year', 'OldPrice'))
 HousingPrices1 <- HousingPrices %>%
-  mutate(Year=Year-1, NewPrice=HousingPrices) %>%
-  select(c('Country.Code', 'Year', 'NewPrice'))
+  mutate(Year=Year+1, OldPrice=HousingPrices) %>%
+  select(c('Country.Code', 'Year', 'OldPrice'))
 
 SharePrices <- merge(x=SharePrices, y=SharePrices1, by=c('Country.Code', 'Year'), all.x=T) %>%
-  mutate(ShareGrowth=100*NewPrice/SharePrices-100) %>%
+  mutate(ShareGrowth=100*SharePrices/OldPrice-100) %>%
   select(c('Country.Code', 'Year', 'ShareGrowth'))
 HousingPrices <- merge(x=HousingPrices, y=HousingPrices1, by=c('Country.Code', 'Year'), all.x=T) %>%
-  mutate(RentGrowth=100*NewPrice/HousingPrices-100) %>%
+  mutate(RentGrowth=100*HousingPrices/OldPrice-100) %>%
   select(c('Country.Code', 'Year', 'RentGrowth'))
 
 # Add next year's inflation as target
@@ -250,14 +250,12 @@ train <- df %>%
   filter(Year<=1995+19) %>%
   select(c('GDP', 'GDPPerCapita', 'EmploymentRate', 'HouseholdSavings',
            'HouseholdSpending', 'RentGrowth', 'ShareGrowth', 'Inflation',
-           'InterestRate', 'Population', 'PopulationGrowth', 'GDPGrowth',
-           'WorkingPopulation', 'Target')) %>%
+           'InterestRate', 'PopulationGrowth', 'GDPGrowth', 'Target')) %>%
   drop_na()
 
 test <- df %>%
   filter(Year>1995+19) %>%
   select(c('GDP', 'GDPPerCapita', 'EmploymentRate', 'HouseholdSavings',
            'HouseholdSpending', 'RentGrowth', 'ShareGrowth', 'Inflation',
-           'InterestRate', 'Population', 'PopulationGrowth', 'GDPGrowth',
-           'WorkingPopulation', 'Target')) %>%
+           'InterestRate',  'PopulationGrowth', 'GDPGrowth', 'Target')) %>%
   drop_na()

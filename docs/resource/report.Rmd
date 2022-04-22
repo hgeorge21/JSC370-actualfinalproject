@@ -110,7 +110,9 @@ corTab <- data.table(df)[,.(
   Cor.SharePx=cor(Inflation, ShareGrowth),
   Cor.EmployRate=cor(Inflation, EmploymentRate),
   Cor.InterestRate=cor(Inflation, InterestRate)
-), by=Country.Code] %>% head(5)
+), by=Country.Code] 
+
+corTab <- corTab[order(-Entries),] %>% head(5)
 corTab[,3:7] = round(corTab[,3:7], 3)
 
 knitr::kable(corTab, caption="Corr. b/w Inflation and Key Metrics -- Top 5 Countries")
@@ -141,11 +143,13 @@ including current year's inflation number. The models that are used are
 * GBM
 * XGBoost
 
-We can see from the variable importance plots of different models, the current inflation, rent growth, and interest rate
-are the most relevant features in the model. Even a simple pruned decision tree is able to
-capture this feature. Overall, the different models agree quite well with each other.
+We can see from the variable importance plots that different models give quite
+different results. However, the common theme between all models is that current year's inflation is the most important feature.
+
 
 ### Decision Tree
+We can see that the pruned tree is quite complex, it used various number of features.
+The main ones are inflation, GDP growth, and interest rate.
 
 ```{r echo=F}
 set.seed(15129)
@@ -159,7 +163,7 @@ rpart.plot(tree_prune, main="Pruned Tree")
 
 ### Bagging
 For bagging, we set the number of variables sampled as candidates to be the same
-as the number of variables, 13.
+as the number of variables, 11. We can see that inflation is the most important feature.
 
 ```{r echo=F}
 set.seed(15129)
@@ -170,6 +174,9 @@ varImpPlot(bag, n.var=13, col="blue", main='Bagging Importance Plot')
 ```
 
 ### Random Forest
+From the plot, inflation is still the most important feature, but some other
+features such as interest rate and GDP per capita has became more important.
+
 ```{r echo=F}
 set.seed(15129)
 
@@ -237,7 +244,10 @@ plot(varImp(xgb, scale = F), main="XGBoost Variable Importance")
 ## Model Performance
 Based on the model performances, we can see that Random Forest performs the best out of 
 all the models. All the models' MSE are actually quite close to each other since they all
-identified the most relevant features related to future inflation.
+identified the most relevant features related to future inflation. Boosting is the exception where
+it's performance is quite different from other models; from the importance chart we see that
+interest rate is not important in the boosting model whereas in other models, it is much more important.
+This sets boosting apart from other models.
 
 ```{r echo=F}
 methods <- c('Regression Tree', 'Bagging', 'Random Forest', 'Boosting', 'XGBoost')
