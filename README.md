@@ -6,7 +6,7 @@ All the data used are extracted from OECD, check details in website. The economi
 
 Simply running `index.Rmd` and `./resource/report.Rmd` will generate the `index.html` for the site and `report.pdf` for the PDF report.
 
-The video for presentation is linked at https://play.library.utoronto.ca/watch/1a4491307b9907a70ab31cadf3019f24
+The video for presentation is linked at https://play.library.utoronto.ca/watch/0a5152988527a00e34ced96dae177da9
 
 The website is hosted on https://hgeorge21.github.io/JSC370-inflationAnalysis/
 
